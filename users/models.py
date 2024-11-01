@@ -1,41 +1,72 @@
-# users/models.py
-
-from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.contrib.auth.models import AbstractUser
+from .myusermanager import MyUserManager
+from django.utils.translation import gettext_lazy as _
+from django.contrib.auth.models import User
+from django.db.models.signals import post_save
+import datetime
 
-class CustomUser(AbstractUser):
+#user data for login and signup - CUSTOMERS ------------------------
 
-    BUYER = 'buyer'
-    SELLER = 'seller'
-    USER_TYPES = [
-        (BUYER, 'Buyer'),
-        (SELLER, 'Seller'),
-    ]
+class MyUser(AbstractUser):
+    user = models.OneToOneField('self', on_delete=models.CASCADE, unique=True, related_name='MyUser', null=True)
+    first_name = models.CharField(max_length=50)
+    last_name = models.CharField(max_length=50)
+    username = models.CharField(max_length=30)
+    password = models.CharField(max_length=128)    
+    date_of_birth = models.DateField(null=True, blank=True)
+    profile_picture = models.ImageField(upload_to='images/', null=True, blank=True)
+    bio = models.TextField(max_length=500, blank=True)
+    phone_number = models.CharField(max_length=15, blank=True)
+    is_verified = models.BooleanField(default=False)
+    is_premium_member = models.BooleanField(default=False)
+    mobile = models.CharField(max_length=11, unique=True)
+    otp = models.IntegerField(blank=True, null=True)
+    otp_create_time = models.DateTimeField(auto_now=True)
+    email = models.EmailField(max_length=100)
+    date_modified = models.DateTimeField(auto_now=True)
+    address1 = models.CharField(max_length=200, blank=True)
+    address2 = models.CharField(max_length=200, blank=True)
+    city = models.CharField(max_length=200, blank=True)
+    state = models.CharField(max_length=200, blank=True)
+    zipcode = models.CharField(max_length=200, blank=True)
+    country = models.CharField(max_length=200, blank=True)
+    old_cart = models.CharField(max_length=200, blank=True, null=True)
+    is_seller = models.BooleanField(default=False) 
 
-    user_type = models.CharField(max_length=10, choices=USER_TYPES, default=BUYER)
-    store_name = models.CharField(max_length=255, blank=True, null=True)  # Only applicable for sellers
+    objects = MyUserManager()
 
-    # New fields added to user profile
-    first_name = models.CharField(max_length=30)
-    family_name = models.CharField(max_length=30)
-    age = models.PositiveIntegerField(blank=True, null=True)
+    USERNAME_FIELD = 'mobile'
+    REQUIRED_FIELDS = []
+    backend = 'users.mybackend.ModelBackend'
 
-    GENDER_CHOICES = [
-        ('M', 'Male'),
-        ('F', 'Female'),
-        ('O', 'Other'),
-    ]
-    gender = models.CharField(max_length=1, choices=GENDER_CHOICES, blank=True)
+    def get_full_name(self):
+        return f"{self.first_name} {self.last_name}"
 
-    address = models.TextField(blank=True, null=True)
-    postal_code = models.CharField(max_length=10, blank=True, null=True)
-    meli_card_number = models.CharField(max_length=10, unique=True, blank=True, null=True)
+    def get_short_name(self):
+        return self.first_name
 
-    # Add other fields as needed
-    additional_info = models.TextField(blank=True, null=True)
+    def get_age(self):
+        if self.date_of_birth:
+            today = datetime.date.today()
+            birth_date = self.date_of_birth
+            age = today.year - birth_date.year 
+            return age
+        
+    def get_full_address(self):
+        return self.address
 
     def __str__(self):
-        return f"{self.username} - {self.first_name} {self.family_name}"
-    
-    def is_seller(self):
-        return self.user_type == self.SELLER
+        return self.mobile
+
+
+# Create a user Profile by default when user signs up
+
+# Update the create_profile function to perform actions after MyUser instance creation
+def create_profile(sender, instance, created, **kwargs):
+    if created:
+        # Perform actions after MyUser instance creation here
+        pass
+
+# Connect the signal to the function
+post_save.connect(create_profile, sender=MyUser)

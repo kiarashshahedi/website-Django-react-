@@ -1,101 +1,67 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework_simplejwt.views import TokenObtainPairView
-from rest_framework.permissions import IsAuthenticated, AllowAny
-from .serializers import CustomUserSerializer, CustomTokenObtainPairSerializer, ChangePasswordSerializer
-from django.contrib.auth import get_user_model
-from .permissions import IsSeller
-from .serializers import CustomTokenObtainPairSerializer
+from django.contrib.auth import authenticate, login, logout
+from .serializers import RegisterSerializer, LoginSerializer, UserSerializer
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import api_view, permission_classes
+from .models import MyUser
 
-
-
-
-User = get_user_model()
-
-class RegisterUser(APIView):
-    permission_classes = [AllowAny]
-
+# Register 
+class RegisterView(APIView):
     def post(self, request):
-        serializer = CustomUserSerializer(data=request.data)
+        serializer = RegisterSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-class BuyerProfileView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        # View buyer's profile information
-        serializer = CustomUserSerializer(request.user)
-        return Response(serializer.data)
-
-    def put(self, request):
-        # Update buyer profile information
-        serializer = CustomUserSerializer(request.user, data=request.data, partial=True)
+# Login 
+class LoginView(APIView):
+    def post(self, request):
+        serializer = LoginSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
+            mobile = serializer.validated_data['mobile']
+            password = serializer.validated_data['password']
+            user = authenticate(request, mobile=mobile, password=password)
+            if user:
+                login(request, user)
+                return Response(UserSerializer(user).data)
+            return Response({"error": "Invalid credentials"}, status=status.HTTP_400_BAD_REQUEST)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-class SellerProfileView(APIView):
-    permission_classes = [IsAuthenticated, IsSeller]
-
-    def get(self, request):
-        # View seller's profile information
-        serializer = CustomUserSerializer(request.user)
-        return Response(serializer.data)
-
-    def put(self, request):
-        # Update seller profile information
-        serializer = CustomUserSerializer(request.user, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-class ChangePasswordView(APIView):
+# Logout
+class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        serializer = ChangePasswordSerializer(data=request.data)
-        if serializer.is_valid():
-            user = request.user
-            if not user.check_password(serializer.data['old_password']):
-                return Response({"old_password": "Wrong password"}, status=status.HTTP_400_BAD_REQUEST)
-            user.set_password(serializer.data['new_password'])
-            user.save()
-            return Response({"status": "Password updated successfully"}, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        logout(request)
+        return Response({"message": "Logged out successfully"}, status=status.HTTP_200_OK)
 
-class SellerProductAdminView(APIView):
-    permission_classes = [IsAuthenticated, IsSeller]
+# Buyer Dashboard 
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def buyer_dashboard_view(request):
+    if request.user.is_seller:
+        return Response({"error": "Access denied"}, status=403)
+    # Sample response with buyer-specific data
+    return Response({
+        "message": "Welcome to the Buyer Dashboard",
+        "data": "Buyer-specific data here"
+    })
 
-    def get(self, request):
-        # Retrieve all products for the seller
-        # Placeholder response (replace with actual product logic)
-        return Response({"products": []})
-
-    def post(self, request):
-        # Add a new product for the seller
-        # Placeholder response (replace with actual product creation logic)
-        return Response({"message": "Product created"}, status=status.HTTP_201_CREATED)
-
-    def put(self, request, product_id):
-        # Update an existing product for the seller
-        # Placeholder response (replace with actual product update logic)
-        return Response({"message": f"Product {product_id} updated"}, status=status.HTTP_200_OK)
-
-    def delete(self, request, product_id):
-        # Delete a product for the seller
-        # Placeholder response (replace with actual product deletion logic)
-        return Response({"message": f"Product {product_id} deleted"}, status=status.HTTP_200_OK)
-
-
-
-class CustomTokenObtainPairView(TokenObtainPairView):
-    """
-    Custom JWT login view using TokenObtainPairSerializer for username and password authentication.
-    """
-    serializer_class = CustomTokenObtainPairSerializer
+# Seller Dashboard 
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def seller_dashboard_view(request):
+    if not request.user.is_seller:
+        return Response({"error": "Access denied"}, status=403)
+    # Sample response with seller-specific data
+    return Response({
+        "message": "Welcome to the Seller Dashboard",
+        "data": {
+            "products": [],  # Seller's products data
+            "orders": [],    # Seller's orders data
+            # Additional seller-specific info
+        }
+    })

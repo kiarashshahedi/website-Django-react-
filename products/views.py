@@ -1,20 +1,46 @@
-from rest_framework.views import APIView
+from rest_framework import generics, permissions, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from .models import Product
-from .serializers import ProductSerializer
+from .models import Product, Category, ProductImage, Review
+from .serializers import ProductSerializer, CategorySerializer, ReviewSerializer, ProductImageSerializer
 
-class ProductListCreate(APIView):
+class ProductListView(generics.ListAPIView):
+    queryset = Product.objects.all()
+    serializer_class = ProductSerializer
+
+class ProductDetailView(generics.RetrieveAPIView):
+    queryset = Product.objects.all()
+    serializer_class = ProductSerializer
+
+# Seller Add Product 
+class AddProductView(generics.CreateAPIView):
+    serializer_class = ProductSerializer
     permission_classes = [IsAuthenticated]
 
-    def get(self, request):
-        products = Product.objects.all()
-        serializer = ProductSerializer(products, many=True)
-        return Response(serializer.data)
+    def perform_create(self, serializer):
+        if not self.request.user.is_seller:
+            raise PermissionError("Only sellers can add products.")
+        serializer.save(seller=self.request.user)
 
-    def post(self, request):
-        serializer = ProductSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save(seller=request.user)
-            return Response(serializer.data)
-        return Response(serializer.errors)
+class AddReviewView(generics.CreateAPIView):
+    serializer_class = ReviewSerializer
+    permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        product_id = self.kwargs['pk']
+        product = Product.objects.get(pk=product_id)
+        serializer.save(user=self.request.user, product=product)
+        product.update_ratings()
+
+class AddProductImageView(generics.CreateAPIView):
+    serializer_class = ProductImageSerializer
+    permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        product_id = self.kwargs['pk']
+        product = Product.objects.get(pk=product_id)
+        serializer.save(product=product)
+
+class CategoryListView(generics.ListAPIView):
+    queryset = Category.objects.filter(parent=None) 
+    serializer_class = CategorySerializer

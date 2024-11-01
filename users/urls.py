@@ -1,18 +1,13 @@
 from django.urls import path
-from rest_framework_simplejwt.views import TokenRefreshView
-
-from .views import (
-    RegisterUser, CustomTokenObtainPairView, BuyerProfileView, SellerProfileView,
-    ChangePasswordView, SellerProductAdminView,
-)
+from .views import RegisterView, LoginView, LogoutView, buyer_dashboard_view, seller_dashboard_view
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 urlpatterns = [
-    path('register/', RegisterUser.as_view(), name='register'),
-    path('login/', CustomTokenObtainPairView.as_view(), name='login'),
+    path('register/', RegisterView.as_view(), name='register'),
+    path('login/', LoginView.as_view(), name='login'),
+    path('logout/', LogoutView.as_view(), name='logout'),
+    path('dashboard/buyer/', buyer_dashboard_view, name='buyer_dashboard'),
+    path('dashboard/seller/', seller_dashboard_view, name='seller_dashboard'),
+    path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-    path('buyer/profile/', BuyerProfileView.as_view(), name='buyer_profile'),
-    path('seller/profile/', SellerProfileView.as_view(), name='seller_profile'),
-    path('seller/admin/products/', SellerProductAdminView.as_view(), name='seller_admin'),
-    path('change-password/', ChangePasswordView.as_view(), name='change_password'),
-
 ]
